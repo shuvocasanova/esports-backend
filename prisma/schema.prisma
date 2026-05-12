@@ -1,0 +1,158 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id               Int           @id @default(autoincrement())
+  uuid             String        @unique
+  user_wallet      String?       @unique
+  email            String?       @unique
+  password         String?
+  name             String?
+  mobile           String?
+  role             String        @default("user")
+  status           String        @default("active")
+  permissions      String[]      @default([])
+  balance          String        @default("0.0000000")
+  is_profit        Int           @default(0)
+  trade_limit      Int           @default(0)
+  is_referral      Int           @default(0)
+  referral_uuid    String?
+  referral_bonus   String        @default("0.00")
+  message_status   Int           @default(1)
+  note             String?
+  employee         String        @default("user")
+  user_registered  DateTime      @default(now())
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  wallets          Wallet[]
+  transactions     Transaction[]
+  tradeOrders      TradeOrder[]
+}
+
+model Wallet {
+  id                Int      @id @default(autoincrement())
+  user_id           Int
+  user              User     @relation(fields: [user_id], references: [id])
+  coin_id           String
+  coin_name         String
+  coin_logo         String?
+  coin_symbol       String
+  wallet_network    String
+  wallet_address    String
+  wallet_qr         String?
+  status            String   @default("active")
+  coin_amount       String   @default("0.0000000")
+  usd_amount        String   @default("0.00")
+  total_deposits    String   @default("0.0000000")
+  total_withdrawals String   @default("0.0000000")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model TradeOrder {
+  id                   Int      @id @default(autoincrement())
+  order_id             String   @unique
+  order_type           String
+  order_position       String
+  user_id              Int
+  user                 User     @relation(fields: [user_id], references: [id])
+  user_wallet          String?
+  wallet_coin_id       String?
+  trade_coin_id        String?
+  trade_coin_symbol    String?
+  amount               String
+  wallet_amount        String?
+  profit_amount        String?
+  purchase_price       String?
+  delivery_price       String?
+  wallet_profit_amount String?
+  delivery_time        String?
+  profit_level         String?
+  is_profit            Int      @default(0)
+  status               String   @default("pending")
+  user_uuid            String?
+  asigned_employee     String?
+  wallet_coin_name     String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model TimerProfit {
+  id        Int      @id @default(autoincrement())
+  timer     String
+  profit    String
+  mini_usdt String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Transaction {
+  id             Int      @id @default(autoincrement())
+  user_id        Int
+  user           User     @relation(fields: [user_id], references: [id])
+  type           String   // 'deposit' or 'withdrawal'
+  amount         String
+  coin_id        String?
+  coin_symbol    String?
+  coin_name      String?
+  wallet_from    String?
+  wallet_to      String?
+  trans_hash     String?
+  status         String   @default("pending")
+  documents      String?  // Formerly proof_image
+  admin_note     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Settings {
+  id                            Int      @id @default(autoincrement())
+  referral_registration_status  String   @default("enabled")
+  referral_registration_bonus   String   @default("5.00")
+  referral_deposit_bonus_status String   @default("enabled")
+  referral_deposit_bonus        String   @default("10")
+  trade_amount_limit            String   @default("5000")
+  deposit_limit                 String   @default("20")
+  withdrawal_limit              String   @default("10")
+  notice                        String   @default("")
+  hero_bg_color                 String   @default("#000000")
+  hero_text_color               String   @default("#ffffff")
+  btn_bg_color                  String   @default("#000000")
+  btn_text_color                String   @default("#ffffff")
+  email                         String   @default("")
+  whatsapp                      String   @default("")
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+}
+
+model Conversation {
+  id                Int       @id @default(autoincrement())
+  user1_id          Int
+  user2_id          Int       @default(0)
+  anonymous_user_id String?
+  message_status    Int       @default(1)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  messages          Message[]
+}
+
+model Message {
+  id              Int           @id @default(autoincrement())
+  conversation_id Int
+  conversation    Conversation  @relation(fields: [conversation_id], references: [id])
+  sender_id       Int
+  message         String
+  sender_type     String        @default("user") // 'user' or 'admin'
+  is_read         Boolean       @default(false)
+  attachments     String[]      @default([])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}

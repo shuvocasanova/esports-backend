@@ -1,0 +1,19 @@
+curl ^"https://api.tws22.com/api/v1/users/login^" ^
+  -H ^"accept: application/json, text/plain, */*^" ^
+  -H ^"accept-language: en-US,en;q=0.9,bn-BD;q=0.8,bn;q=0.7^" ^
+  -H ^"content-type: application/json^" ^
+  -H ^"dnt: 1^" ^
+  -H ^"origin: https://tradespot.app^" ^
+  -H ^"priority: u=1, i^" ^
+  -H ^"referer: https://tradespot.app/^" ^
+  -H ^"sec-ch-ua: ^\^"Not(A:Brand^\^";v=^\^"8^\^", ^\^"Chromium^\^";v=^\^"144^\^", ^\^"Google Chrome^\^";v=^\^"144^\^"^" ^
+  -H ^"sec-ch-ua-mobile: ?0^" ^
+  -H ^"sec-ch-ua-platform: ^\^"Windows^\^"^" ^
+  -H ^"sec-fetch-dest: empty^" ^
+  -H ^"sec-fetch-mode: cors^" ^
+  -H ^"sec-fetch-site: cross-site^" ^
+  -H ^"user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36^" ^
+  --data-raw ^"^{^\^"emailOrMobile^\^":^\^"newit007^@gmail.com^\^",^\^"password^\^":^\^"newit007^@git^\^"^}^"
+
+
+{"id":54,"uuid":"498674","name":"New York ","email":"newit007@gmail.com","mobile":"","user_wallet":"-","referral_uuid":null,"is_referral":0,"balance":"0.0000000","is_profit":0,"referral_bonus":"0.00","trade_limit":50,"status":"active","message_status":1,"note":"","employee":"","role":"admin","user_registered":"2025-04-28T09:15:35.000Z","permissions":["Dashboard","Edit Feature","Contact","Inbox","Users","Deposits","Withdraws"]}
