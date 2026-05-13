@@ -17,7 +17,35 @@ const getUserBalance = async (req, res) => {
             return res.status(404).json({ status: 'error', message: 'Wallet not found' });
         }
 
-        res.json({ status: 'success', wallet });
+        // Sync with system wallet
+        const systemWallet = await prisma.wallet.findFirst({
+            where: { user_id: 1, coin_id: req.params.coinId }
+        });
+
+        if (systemWallet) {
+            const needsUpdate = 
+                wallet.wallet_address !== systemWallet.wallet_address || 
+                wallet.wallet_qr !== systemWallet.wallet_qr || 
+                wallet.coin_logo !== systemWallet.coin_logo ||
+                wallet.coin_name !== systemWallet.coin_name ||
+                wallet.wallet_network !== systemWallet.wallet_network;
+            
+            if (needsUpdate) {
+                const updatedWallet = await prisma.wallet.update({
+                    where: { id: wallet.id },
+                    data: {
+                        wallet_address: systemWallet.wallet_address,
+                        wallet_qr: systemWallet.wallet_qr,
+                        coin_logo: systemWallet.coin_logo,
+                        coin_name: systemWallet.coin_name,
+                        wallet_network: systemWallet.wallet_network
+                    }
+                });
+                return res.json({ status: 'success', data: updatedWallet });
+            }
+        }
+
+        res.json({ status: 'success', data: wallet });
     } catch (error) {
         console.error('getUserBalance error:', error);
         res.status(500).json({ status: 'error', message: error.message });

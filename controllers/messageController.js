@@ -2,26 +2,8 @@ const prisma = require('../config/db');
 const path = require('path');
 const fs = require('fs'); // Keep for potential local debugging or other tasks
 
-/**
- * Helper to upload image to ImgBB
- */
-const sharp = require('sharp');
+const { compressImage } = require('../utils/imageHelper');
 
-const compressImage = async (file) => {
-    try {
-        // Compress image to JPEG with 60% quality to save space
-        const compressedBuffer = await sharp(file.buffer)
-            .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
-            .jpeg({ quality: 60 })
-            .toBuffer();
-        
-        const base64Data = compressedBuffer.toString('base64');
-        return `data:image/jpeg;base64,${base64Data}`;
-    } catch (error) {
-        console.error('Compression Error:', error.message);
-        return null;
-    }
-};
 
 /**
  * GET /api/v1/conversation/
@@ -127,14 +109,13 @@ const getMessagesByConversation = async (req, res) => {
  */
 const sendMessage = async (req, res) => {
     try {
-        const { userId, recipientId, messageText, senderType } = req.body;
+        const { userId, recipientId, messageText, senderType, faq_id } = req.body;
         const file = req.file;
 
         const uid = parseInt(userId);
         const rid = parseInt(recipientId);
 
         // Normalize IDs: In support chat, we always pair User with ID 0 (Support)
-        // senderType can be 'admin' or 'user'
         const isUserSender = senderType !== 'admin';
         const endUserId = isUserSender ? uid : rid;
 
@@ -158,6 +139,7 @@ const sendMessage = async (req, res) => {
             attachmentUrl = await compressImage(file);
         }
 
+        // 1. Create the User's Message
         const message = await prisma.message.create({
             data: {
                 conversation_id: conversation.id,
@@ -174,7 +156,7 @@ const sendMessage = async (req, res) => {
             data: { updatedAt: new Date() }
         });
 
-        const finalMsg = {
+        const formattedUserMsg = {
             id: message.id,
             conversation_id: conversation.id,
             sender_id: message.sender_id,
@@ -186,16 +168,91 @@ const sendMessage = async (req, res) => {
             created_at: message.createdAt
         };
 
-        // Emit Socket.IO event
         const io = req.app.get('io');
         if (io) {
-            io.emit('newMessage', finalMsg);
+            io.emit('newMessage', formattedUserMsg);
+        }
+
+        // 2. If it's an FAQ select, automatically create the Bot Reply
+        let botMsg = null;
+        if (faq_id && isUserSender) {
+            const faq = await prisma.chatFaq.findUnique({
+                where: { id: parseInt(faq_id) },
+                include: { children: { where: { status: 1 }, orderBy: { order_num: 'asc' } } }
+            });
+
+            if (faq) {
+                const messageBot = await prisma.message.create({
+                    data: {
+                        conversation_id: conversation.id,
+                        sender_id: 0, // Admin/Bot
+                        message: faq.answer,
+                        sender_type: 'admin',
+                        faq_options: faq.children.length > 0 ? faq.children : undefined
+                    }
+                });
+
+                botMsg = {
+                    id: messageBot.id,
+                    conversation_id: conversation.id,
+                    sender_id: 0,
+                    anonymous_sender_id: null,
+                    message_text: messageBot.message,
+                    message_image: null,
+                    seen: 0,
+                    sender_type: 'admin',
+                    faq_options: messageBot.faq_options,
+                    created_at: messageBot.createdAt
+                };
+
+                if (io) {
+                    // Small delay to feel more natural
+                    setTimeout(() => io.emit('newMessage', botMsg), 500);
+                }
+            }
         }
 
         // Response matches live API exactly
-        res.status(201).json(finalMsg);
+        res.status(201).json(formattedUserMsg);
     } catch (error) {
         console.error('sendMessage error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * GET /api/v1/messages/user/:userId
+ * Fetches conversations for a specific user.
+ */
+const getUserConversations = async (req, res) => {
+    try {
+        const userId = parseInt(req.params.userId);
+        const conversations = await prisma.conversation.findMany({
+            where: { user1_id: userId },
+            orderBy: { updatedAt: 'desc' },
+            include: {
+                messages: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 1
+                }
+            }
+        });
+
+        const formatted = conversations.map(c => {
+            const lastMsg = c.messages[0];
+            return {
+                id: c.id,
+                user1_id: c.user1_id,
+                user2_id: c.user2_id,
+                last_message: lastMsg?.message || '',
+                last_message_time: lastMsg?.createdAt || c.updatedAt,
+                unread_count: 0
+            };
+        });
+
+        res.json(formatted);
+    } catch (error) {
+        console.error('getUserConversations error:', error);
         res.status(500).json({ error: error.message });
     }
 };
@@ -220,5 +277,6 @@ module.exports = {
     getAllConversations,
     getMessagesByConversation,
     sendMessage,
-    deleteConversation
+    deleteConversation,
+    getUserConversations
 };

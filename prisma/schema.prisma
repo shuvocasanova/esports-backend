@@ -30,6 +30,11 @@ model User {
   note             String?
   employee         String        @default("user")
   user_registered  DateTime      @default(now())
+  passcode         String?
+  has_passcode     Boolean       @default(false)
+  balance_visible  Int           @default(1)
+  profile_image    String?
+  face_image       String?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   wallets          Wallet[]
@@ -55,6 +60,8 @@ model Wallet {
   total_withdrawals String   @default("0.0000000")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  @@unique([user_id, coin_id])
 }
 
 model TradeOrder {
@@ -81,6 +88,7 @@ model TradeOrder {
   user_uuid            String?
   asigned_employee     String?
   wallet_coin_name     String?
+  coin_symbol          String?  @default("USDT")
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 }
@@ -109,6 +117,7 @@ model Transaction {
   status         String   @default("pending")
   documents      String?  // Formerly proof_image
   admin_note     String?
+  is_seen        Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
@@ -153,6 +162,22 @@ model Message {
   sender_type     String        @default("user") // 'user' or 'admin'
   is_read         Boolean       @default(false)
   attachments     String[]      @default([])
+  faq_options     Json?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 }
+
+model ChatFaq {
+  id        Int       @id @default(autoincrement())
+  question  String
+  answer    String    @db.Text
+  parent_id Int?
+  order_num Int       @default(0)
+  status    Int       @default(1) // 1 = active, 0 = inactive
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  parent    ChatFaq?  @relation("ParentChild", fields: [parent_id], references: [id])
+  children  ChatFaq[] @relation("ParentChild")
+}
+

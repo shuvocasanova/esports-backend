@@ -6,7 +6,8 @@ const {
     getAllConversations, 
     getMessagesByConversation, 
     sendMessage, 
-    deleteConversation 
+    deleteConversation,
+    getUserConversations
 } = require('../controllers/messageController');
 
 // Multer setup for message attachments (using memory storage for cloud uploads)
@@ -14,6 +15,9 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 // --- Specific Routes First ---
+
+// GET /api/v1/messages/user/:userId
+router.get('/user/:userId', getUserConversations);
 
 // GET /api/v1/messages/:conversationId/user/0
 router.get('/:conversationId/user/0', getMessagesByConversation);

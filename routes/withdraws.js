@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const prisma = require('../config/db');
-const { getWithdrawals, updateWithdrawal, deleteWithdrawal } = require('../controllers/withdrawController');
+const { getWithdrawals, updateWithdrawal, deleteWithdrawal, markSeen, getUnseenCount } = require('../controllers/withdrawController');
 
 // Admin Routes
 router.get('/', getWithdrawals);
+router.get('/unseen-count', getUnseenCount);
+router.put('/mark-seen', markSeen);
 router.put('/:id', updateWithdrawal);
 router.delete('/:id', deleteWithdrawal);
 

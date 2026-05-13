@@ -23,7 +23,7 @@ router.post('/create', async (req, res) => {
         });
 
         if (user) {
-            return res.status(200).json(user);
+            return res.status(200).json({ ...user, passcode_set: user.has_passcode });
         }
 
         // Create new user
@@ -38,7 +38,7 @@ router.post('/create', async (req, res) => {
             }
         });
 
-        res.status(201).json(user);
+        res.status(201).json({ ...user, passcode_set: user.has_passcode });
     } catch (error) {
         console.error('User creation error:', error);
         res.status(500).json({ status: 'error', message: error.message });
@@ -76,7 +76,7 @@ router.post('/login', async (req, res) => {
         }
 
         // Return the full user object as expected by AdminLogin.jsx
-        res.json(user);
+        res.json({ ...user, passcode_set: user.has_passcode });
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ status: 'error', message: error.message });
@@ -100,9 +100,96 @@ router.get('/wallet/:wallet', async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        res.json(user);
+        res.json({ ...user, passcode_set: user.has_passcode });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * @route   POST /api/v1/users/set-passcode
+ * @desc    Set initial passcode for a user
+ * @access  Public
+ */
+router.post('/set-passcode', async (req, res) => {
+    try {
+        const { userId, user_wallet, passcode } = req.body;
+        if ((!userId && !user_wallet) || !passcode) {
+            return res.status(400).json({ status: 'error', message: 'User identifier and passcode are required' });
+        }
+
+        const where = userId ? { id: parseInt(userId) } : { user_wallet };
+
+        const user = await prisma.user.update({
+            where,
+            data: {
+                passcode,
+                has_passcode: true
+            }
+        });
+
+        res.json({ status: 'success', message: 'Passcode set successfully', user: { ...user, passcode_set: user.has_passcode } });
+    } catch (error) {
+        console.error('set-passcode error:', error);
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+});
+
+/**
+ * @route   POST /api/v1/users/verify-passcode
+ * @desc    Verify user passcode
+ * @access  Public
+ */
+router.post('/verify-passcode', async (req, res) => {
+    try {
+        const { userId, user_wallet, passcode } = req.body;
+        if ((!userId && !user_wallet) || !passcode) {
+            return res.status(400).json({ status: 'error', message: 'User identifier and passcode are required' });
+        }
+
+        const where = userId ? { id: parseInt(userId) } : { user_wallet };
+
+        const user = await prisma.user.findUnique({
+            where
+        });
+
+        if (!user || user.passcode !== passcode) {
+            return res.status(401).json({ status: 'error', message: 'Invalid passcode' });
+        }
+
+        res.json({ status: 'success', message: 'Passcode verified', user: { ...user, passcode_set: user.has_passcode } });
+    } catch (error) {
+        console.error('verify-passcode error:', error);
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+});
+
+/**
+ * @route   POST /api/v1/users/reset-passcode
+ * @desc    Reset user passcode (Admin action)
+ * @access  Public (Should be protected in production)
+ */
+router.post('/reset-passcode', async (req, res) => {
+    try {
+        const { userId, user_wallet } = req.body;
+        if (!userId && !user_wallet) {
+            return res.status(400).json({ status: 'error', message: 'User identifier is required' });
+        }
+
+        const where = userId ? { id: parseInt(userId) } : { user_wallet };
+
+        await prisma.user.update({
+            where,
+            data: {
+                passcode: null,
+                has_passcode: false
+            }
+        });
+
+        res.json({ status: 'success', message: 'Passcode reset successfully' });
+    } catch (error) {
+        console.error('reset-passcode error:', error);
+        res.status(500).json({ status: 'error', message: error.message });
     }
 });
 

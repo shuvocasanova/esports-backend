@@ -32,6 +32,7 @@ const formatOrder = (order) => ({
     user_uuid: order.user_uuid,
     asigned_employee: order.asigned_employee,
     wallet_coin_name: order.wallet_coin_name,
+    coin_symbol: order.coin_symbol || 'USDT',
 });
 
 /**

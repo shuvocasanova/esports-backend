@@ -145,8 +145,41 @@ const deleteDeposit = async (req, res) => {
     }
 };
 
+const markSeen = async (req, res) => {
+    try {
+        await prisma.transaction.updateMany({
+            where: {
+                type: 'deposit',
+                is_seen: false
+            },
+            data: { is_seen: true }
+        });
+        res.json({ message: 'All deposits marked as seen' });
+    } catch (error) {
+        console.error('markSeen error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+const getUnseenCount = async (req, res) => {
+    try {
+        const count = await prisma.transaction.count({
+            where: {
+                type: 'deposit',
+                is_seen: false
+            }
+        });
+        res.json({ count });
+    } catch (error) {
+        console.error('getUnseenCount error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
 module.exports = {
     getDeposits,
     updateDeposit,
-    deleteDeposit
+    deleteDeposit,
+    markSeen,
+    getUnseenCount
 };

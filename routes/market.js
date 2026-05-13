@@ -3,25 +3,49 @@ const router = express.Router();
 
 // Mock market data - in production, this would fetch from a real API
 const mockForexData = [
-    { id: 'eurusd', name: 'EUR/USD', symbol: 'EURUSD', price: '1.0850', change: '+0.25%', high: '1.0875', low: '1.0820' },
-    { id: 'gbpusd', name: 'GBP/USD', symbol: 'GBPUSD', price: '1.2650', change: '-0.15%', high: '1.2680', low: '1.2620' },
-    { id: 'usdjpy', name: 'USD/JPY', symbol: 'USDJPY', price: '148.50', change: '+0.42%', high: '149.00', low: '147.80' }
+    { 
+        symbol: 'BTC',
+        response: [{
+            meta: { symbol: 'BTC', name: 'Bitcoin', regularMarketPrice: 64500.50, previousClose: 63800.00, regularMarketDayHigh: 65000.00, regularMarketDayLow: 63800.00, currency: 'USD' }
+        }]
+    },
+    { 
+        symbol: 'ETH',
+        response: [{
+            meta: { symbol: 'ETH', name: 'Ethereum', regularMarketPrice: 3450.20, previousClose: 3400.00, regularMarketDayHigh: 3500.00, regularMarketDayLow: 3400.00, currency: 'USD' }
+        }]
+    },
+    { 
+        symbol: 'SOL',
+        response: [{
+            meta: { symbol: 'SOL', name: 'Solana', regularMarketPrice: 145.80, previousClose: 140.00, regularMarketDayHigh: 150.00, regularMarketDayLow: 140.00, currency: 'USD' }
+        }]
+    }
 ];
 
 const mockMetalData = [
-    { id: 'gold', name: 'Gold', symbol: 'XAU', price: '2045.50', change: '+1.25%', high: '2055.00', low: '2030.00' },
-    { id: 'silver', name: 'Silver', symbol: 'XAG', price: '23.85', change: '+0.85%', high: '24.10', low: '23.50' },
-    { id: 'platinum', name: 'Platinum', symbol: 'XPT', price: '915.20', change: '-0.35%', high: '920.00', low: '910.00' }
+    { 
+        symbol: 'DOGE',
+        response: [{
+            meta: { symbol: 'DOGE', name: 'Dogecoin', regularMarketPrice: 0.16, previousClose: 0.15, regularMarketDayHigh: 0.18, regularMarketDayLow: 0.15, currency: 'USD' }
+        }]
+    },
+    { 
+        symbol: 'DOT',
+        response: [{
+            meta: { symbol: 'DOT', name: 'Polkadot', regularMarketPrice: 7.20, previousClose: 7.00, regularMarketDayHigh: 7.50, regularMarketDayLow: 7.00, currency: 'USD' }
+        }]
+    }
 ];
 
 // GET /api/v1/market/forex
 router.get('/forex', (req, res) => {
-    res.json({ status: 'success', data: mockForexData });
+    res.json(mockForexData);
 });
 
 // GET /api/v1/market/metal
 router.get('/metal', (req, res) => {
-    res.json({ status: 'success', data: mockMetalData });
+    res.json(mockMetalData);
 });
 
 // GET /api/v1/market/forex/:coin

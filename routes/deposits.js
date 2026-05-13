@@ -1,12 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const prisma = require('../config/db');
-const { getDeposits, updateDeposit, deleteDeposit } = require('../controllers/depositController');
+const { getDeposits, updateDeposit, deleteDeposit, markSeen, getUnseenCount } = require('../controllers/depositController');
 const multer = require('multer');
-const upload = multer();
+const sharp = require('sharp');
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 // Admin Routes
 router.get('/', getDeposits);
+router.get('/unseen-count', getUnseenCount);
+router.put('/mark-seen', markSeen);
 router.put('/:id', updateDeposit);
 router.delete('/:id', deleteDeposit);
 
@@ -50,12 +54,26 @@ router.get('/latest/:userId/coin/:coinId', async (req, res) => {
 });
 
 // Create deposit (used by DApp)
-router.post('/', upload.none(), async (req, res) => {
+router.post('/', upload.single('documents'), async (req, res) => {
     try {
-        const { user_id, amount, coin_id, coin_symbol, coin_name, wallet_from, wallet_to, trans_hash, documents } = req.body;
-        
+        const { user_id, amount, coin_id, coin_symbol, coin_name, wallet_from, wallet_to, trans_hash } = req.body;
+        const file = req.file;
+
         if (!user_id) {
             return res.status(400).json({ status: 'error', message: 'user_id is required' });
+        }
+
+        let documentBase64 = '';
+        if (file) {
+            try {
+                const compressedBuffer = await sharp(file.buffer)
+                    .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
+                    .jpeg({ quality: 60 })
+                    .toBuffer();
+                documentBase64 = `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
+            } catch (sharpError) {
+                console.error('Image compression error:', sharpError);
+            }
         }
 
         const deposit = await prisma.transaction.create({
@@ -69,7 +87,7 @@ router.post('/', upload.none(), async (req, res) => {
                 wallet_from,
                 wallet_to,
                 trans_hash,
-                documents: documents || '',
+                documents: documentBase64,
                 status: 'pending'
             }
         });

@@ -22,6 +22,12 @@ const formatUser = (u) => ({
     note: u.note,
     employee: u.employee,
     role: u.role,
+    passcode: u.passcode,
+    has_passcode: u.has_passcode,
+    passcode_set: u.has_passcode,
+    balance_visible: u.balance_visible,
+    profile_image: u.profile_image,
+    face_image: u.face_image,
     user_registered: u.user_registered,
 });
 
@@ -167,9 +173,67 @@ const createUser = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/v1/users/upload-profile-image
+ */
+const uploadProfileImage = async (req, res) => {
+    try {
+        const { user_id } = req.body;
+        if (!user_id || isNaN(parseInt(user_id))) {
+            return res.status(400).json({ error: 'Valid user_id is required' });
+        }
+        if (!req.file) {
+            return res.status(400).json({ error: 'No image uploaded' });
+        }
+
+        const { compressImage } = require('../utils/imageHelper');
+        const base64Image = await compressImage(req.file);
+
+        const user = await prisma.user.update({
+            where: { id: parseInt(user_id) },
+            data: { profile_image: base64Image }
+        });
+
+        res.json({ message: 'Profile image uploaded successfully', user: formatUser(user) });
+    } catch (error) {
+        console.error('uploadProfileImage error:', error.message); // Log only the message
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * POST /api/v1/users/face-verify
+ */
+const faceVerify = async (req, res) => {
+    try {
+        const { user_id } = req.body;
+        if (!user_id || isNaN(parseInt(user_id))) {
+            return res.status(400).json({ error: 'Valid user_id is required' });
+        }
+        if (!req.file) {
+            return res.status(400).json({ error: 'No image uploaded' });
+        }
+
+        const { compressImage } = require('../utils/imageHelper');
+        const base64Image = await compressImage(req.file);
+
+        const user = await prisma.user.update({
+            where: { id: parseInt(user_id) },
+            data: { face_image: base64Image }
+        });
+
+        res.json({ message: 'Face verification submitted successfully', user: formatUser(user) });
+    } catch (error) {
+        console.error('faceVerify error:', error.message); // Log only the message
+        res.status(500).json({ error: error.message });
+    }
+};
+
 module.exports = {
     getUsers,
     getUserById,
     updateUser,
-    createUser
+    createUser,
+    uploadProfileImage,
+    faceVerify
 };

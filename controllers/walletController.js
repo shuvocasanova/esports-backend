@@ -1,4 +1,5 @@
 const prisma = require('../config/db');
+const { compressImage } = require('../utils/imageHelper');
 
 const formatWallet = (w) => ({
     id: w.id,
@@ -39,9 +40,36 @@ const getUserWallets = async (req, res) => {
             where: { user_id: userId }
         });
 
-        // 3. Find missing coins for the user
+        // 3. Find missing coins and sync existing ones
+        const systemWalletMap = new Map(systemWallets.map(sw => [sw.coin_id, sw]));
         const existingCoinIds = new Set(userWallets.map(w => w.coin_id));
         const missingWallets = systemWallets.filter(sw => !existingCoinIds.has(sw.coin_id));
+
+        // Sync existing wallets if static info has changed
+        for (const uw of userWallets) {
+            const sw = systemWalletMap.get(uw.coin_id);
+            if (sw) {
+                const needsUpdate = 
+                    uw.wallet_address !== sw.wallet_address || 
+                    uw.wallet_qr !== sw.wallet_qr || 
+                    uw.coin_logo !== sw.coin_logo ||
+                    uw.coin_name !== sw.coin_name ||
+                    uw.wallet_network !== sw.wallet_network;
+                
+                if (needsUpdate) {
+                    await prisma.wallet.update({
+                        where: { id: uw.id },
+                        data: {
+                            wallet_address: sw.wallet_address,
+                            wallet_qr: sw.wallet_qr,
+                            coin_logo: sw.coin_logo,
+                            coin_name: sw.coin_name,
+                            wallet_network: sw.wallet_network
+                        }
+                    });
+                }
+            }
+        }
 
         // 4. Auto-create missing wallets for the user
         if (missingWallets.length > 0) {
@@ -61,18 +89,17 @@ const getUserWallets = async (req, res) => {
                 total_withdrawals: '0.0000000',
             }));
 
-            // Prisma requires creating them individually or using createMany
             await prisma.wallet.createMany({
                 data: newWalletsData,
                 skipDuplicates: true
             });
-
-            // Refetch updated user wallets
-            userWallets = await prisma.wallet.findMany({
-                where: { user_id: userId },
-                orderBy: { id: 'asc'}
-            });
         }
+
+        // Refetch to get updated/synced wallets
+        userWallets = await prisma.wallet.findMany({
+            where: { user_id: userId },
+            orderBy: { id: 'asc'}
+        });
 
         const formattedWallets = userWallets.map(formatWallet);
 
@@ -98,8 +125,6 @@ const getUserWallets = async (req, res) => {
  */
 const getAllWallets = async (req, res) => {
     try {
-        // Fetch Admin system wallets. Assuming `user_id = 1` holds system wallets. 
-        // Can also add condition OR user.role="admin"
         const wallets = await prisma.wallet.findMany({
             where: { user_id: 1 }, 
             orderBy: { id: 'desc' }
@@ -117,32 +142,30 @@ const getAllWallets = async (req, res) => {
  */
 const createWallet = async (req, res) => {
     try {
-        const { coin_id, coin_name, wallet_network, coin_symbol, wallet_address } = req.body;
+        const { coin_id, coin_name, wallet_network, coin_symbol, wallet_address, coin_logo } = req.body;
         
-        // Handle file uploads gracefully
-        let coin_logo_path = null;
-        let document_path = null;
+        let coin_logo_data = coin_logo || null; // Can be a URL string
+        let wallet_qr_data = null;
         
         if (req.files) {
             if (req.files.coin_logo) {
-                // normalize backslashes to forward slashes for URLs
-                coin_logo_path = req.files.coin_logo[0].path.replace(/\\/g, '/');
+                coin_logo_data = await compressImage(req.files.coin_logo[0]);
             }
-            if (req.files.documents) {
-                document_path = req.files.documents[0].path.replace(/\\/g, '/');
+            if (req.files.wallet_qr) {
+                wallet_qr_data = await compressImage(req.files.wallet_qr[0]);
             }
         }
         
         const wallet = await prisma.wallet.create({
             data: {
-                user_id: 1, // Store as SuperAdmin
+                user_id: 1, 
                 coin_id: coin_id || '',
                 coin_name: coin_name || '',
                 wallet_network: wallet_network || '',
                 coin_symbol: coin_symbol || '',
                 wallet_address: wallet_address || '',
-                coin_logo: coin_logo_path,
-                wallet_qr: document_path,
+                coin_logo: coin_logo_data,
+                wallet_qr: wallet_qr_data,
                 status: 'active',
                 coin_amount: '0.0000000',
                 usd_amount: '0.00',
@@ -164,7 +187,7 @@ const createWallet = async (req, res) => {
 const updateWallet = async (req, res) => {
     try {
         const { id } = req.params;
-        const { coin_id, coin_name, wallet_network, coin_symbol, wallet_address, status } = req.body;
+        const { coin_id, coin_name, wallet_network, coin_symbol, wallet_address, status, coin_logo } = req.body;
         
         const updateData = {};
         if (coin_id !== undefined) updateData.coin_id = coin_id;
@@ -173,13 +196,14 @@ const updateWallet = async (req, res) => {
         if (coin_symbol !== undefined) updateData.coin_symbol = coin_symbol;
         if (wallet_address !== undefined) updateData.wallet_address = wallet_address;
         if (status !== undefined) updateData.status = status;
+        if (coin_logo !== undefined) updateData.coin_logo = coin_logo; // In case of URL string
         
         if (req.files) {
             if (req.files.coin_logo) {
-                updateData.coin_logo = req.files.coin_logo[0].path.replace(/\\/g, '/');
+                updateData.coin_logo = await compressImage(req.files.coin_logo[0]);
             }
-            if (req.files.documents) {
-                updateData.wallet_qr = req.files.documents[0].path.replace(/\\/g, '/');
+            if (req.files.wallet_qr) {
+                updateData.wallet_qr = await compressImage(req.files.wallet_qr[0]);
             }
         }
 
@@ -194,6 +218,7 @@ const updateWallet = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
 
 /**
  * DELETE /api/v1/wallets/:id
