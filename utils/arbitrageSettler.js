@@ -101,7 +101,7 @@ const settleArbitragePayouts = async (prismaInstance, io) => {
             }
         }
     } catch (error) {
-        console.error('[ArbitrageSettler] Error during payout settlement:', error);
+        console.error('[ArbitrageSettler] Error during payout settlement:', error.message);
     }
 };
 
