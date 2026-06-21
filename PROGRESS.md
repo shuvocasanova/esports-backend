@@ -33,7 +33,7 @@ Created and executed `seed-arbitrage.js` to seed the standard investment plans:
 
 ## 4. Automatic Yield Settler Loop
 * **Scheduler (`utils/arbitrageSettler.js`)**: Checks active subscriptions. Credits the daily yield payout (`amount * random_daily_rate%`) to user wallets and main balances once every 24 hours. Upon maturity (`end_date`), it automatically returns the original principal and marks the plan as `'completed'`.
-* Registered the scheduler loop inside `server.js` running every 10 seconds.
+* Registered the scheduler loop inside `server.js` running daily at midnight.
 
 ---
 

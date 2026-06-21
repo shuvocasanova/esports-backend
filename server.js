@@ -94,9 +94,31 @@ server.listen(PORT, () => {
         settleExpiredOrders(prisma, io);
     }, 10000);
 
-    // ── Arbitrage Payout Settlement Cron (every 10 seconds) ──
-    setInterval(() => {
+    // ── Arbitrage Payout Settlement Cron (Runs daily at midnight 00:00) ──
+    const runArbitrageCron = () => {
+        console.log(`[ArbitrageCron] Running midnight payouts at ${new Date().toISOString()}`);
         settleArbitragePayouts(prisma, io);
-    }, 10000);
+    };
+
+    const scheduleArbitrageCron = () => {
+        const now = new Date();
+        const nextMidnight = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() + 1, // Tomorrow
+            0, 0, 0, 0         // 00:00:00
+        );
+        const msUntilMidnight = nextMidnight.getTime() - now.getTime();
+
+        console.log(`[ArbitrageCron] Payout cron scheduled. Next run in ${(msUntilMidnight / 3600000).toFixed(2)} hours (at midnight).`);
+
+        setTimeout(() => {
+            runArbitrageCron();
+            // Once midnight is reached, execute every 24 hours
+            setInterval(runArbitrageCron, 24 * 60 * 60 * 1000);
+        }, msUntilMidnight);
+    };
+
+    scheduleArbitrageCron();
 }); // Server is listening
 
