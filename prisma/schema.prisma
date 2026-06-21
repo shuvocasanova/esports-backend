@@ -37,9 +37,10 @@ model User {
   face_image       String?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
-  wallets          Wallet[]
-  transactions     Transaction[]
-  tradeOrders      TradeOrder[]
+  wallets                Wallet[]
+  transactions           Transaction[]
+  tradeOrders            TradeOrder[]
+  arbitrageSubscriptions ArbitrageSubscription[]
 }
 
 model Wallet {
@@ -181,3 +182,34 @@ model ChatFaq {
   children  ChatFaq[] @relation("ParentChild")
 }
 
+model ArbitragePackage {
+  id             Int                     @id @default(autoincrement())
+  name           String
+  duration_days  Int
+  daily_rate_min String
+  daily_rate_max String
+  min_amount     String
+  max_amount     String
+  status         Int                     @default(1) // 1 = active, 0 = inactive
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  subscriptions  ArbitrageSubscription[]
+}
+
+model ArbitrageSubscription {
+  id           Int              @id @default(autoincrement())
+  user_id      Int
+  user         User             @relation(fields: [user_id], references: [id])
+  package_id   Int
+  package      ArbitragePackage @relation(fields: [package_id], references: [id])
+  coin_id      String           // coin_id of the wallet (e.g. '518')
+  amount       String           // principal amount subscribed
+  daily_rate   String           // randomly selected daily rate between min and max
+  total_earned String           @default("0.0000000")
+  status       String           @default("active") // 'active', 'completed', 'cancelled'
+  start_date   DateTime         @default(now())
+  end_date     DateTime
+  last_paid_at DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+}

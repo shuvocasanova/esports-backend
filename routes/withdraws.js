@@ -3,12 +3,14 @@ const router = express.Router();
 const prisma = require('../config/db');
 const { getWithdrawals, updateWithdrawal, deleteWithdrawal, markSeen, getUnseenCount } = require('../controllers/withdrawController');
 
+const adminAuth = require('../utils/adminAuth');
+
 // Admin Routes
-router.get('/', getWithdrawals);
-router.get('/unseen-count', getUnseenCount);
-router.put('/mark-seen', markSeen);
-router.put('/:id', updateWithdrawal);
-router.delete('/:id', deleteWithdrawal);
+router.get('/', adminAuth, getWithdrawals);
+router.get('/unseen-count', adminAuth, getUnseenCount);
+router.put('/mark-seen', adminAuth, markSeen);
+router.put('/:id', adminAuth, updateWithdrawal);
+router.delete('/:id', adminAuth, deleteWithdrawal);
 
 // User/DApp Routes
 router.get('/user/:userId', async (req, res) => {
@@ -21,7 +23,47 @@ router.get('/user/:userId', async (req, res) => {
             },
             orderBy: { createdAt: 'desc' }
         });
-        res.json({ status: 'success', withdrawals });
+
+        // Fetch user's wallets to dynamically populate missing coin symbol/name
+        const userWallets = await prisma.wallet.findMany({
+            where: { user_id: userId }
+        });
+
+        const walletMap = {};
+        userWallets.forEach(w => {
+            walletMap[w.coin_id] = {
+                coin_symbol: w.coin_symbol,
+                coin_name: w.coin_name
+            };
+        });
+
+        // Fetch user's user_wallet to dynamically fallback wallet_from if missing
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { user_wallet: true }
+        });
+        const userWalletAddress = user?.user_wallet || null;
+
+        const formatted = withdrawals.map(w => {
+            const walletInfo = walletMap[w.coin_id] || {};
+            return {
+                id: w.id,
+                user_id: w.user_id,
+                wallet_from: w.wallet_from || userWalletAddress || null,
+                wallet_to: w.wallet_to,
+                trans_hash: w.trans_hash,
+                coin_id: w.coin_id,
+                coin_symbol: w.coin_symbol || walletInfo.coin_symbol || null,
+                amount: w.amount,
+                documents: w.documents,
+                status: w.status,
+                created_at: w.createdAt,
+                updated_at: w.updatedAt,
+                coin_name: w.coin_name || walletInfo.coin_name || null
+            };
+        });
+
+        res.json(formatted);
     } catch (error) {
         res.status(500).json({ status: 'error', message: error.message });
     }
@@ -30,7 +72,7 @@ router.get('/user/:userId', async (req, res) => {
 // Create withdrawal (used by DApp)
 router.post('/', async (req, res) => {
     try {
-        const { user_id, amount, coin_id, coin_symbol, coin_name, wallet_to } = req.body;
+        const { user_id, amount, coin_id, coin_symbol, coin_name, wallet_to, wallet_from } = req.body;
         const userIdInt = parseInt(user_id);
         const amountFloat = parseFloat(amount);
 
@@ -76,8 +118,9 @@ router.post('/', async (req, res) => {
                 type: 'withdrawal',
                 amount: amount.toString(),
                 coin_id,
-                coin_symbol,
-                coin_name,
+                coin_symbol: coin_symbol || wallet?.coin_symbol || null,
+                coin_name: coin_name || wallet?.coin_name || null,
+                wallet_from: wallet_from || user?.user_wallet || null,
                 wallet_to,
                 status: 'pending'
             }

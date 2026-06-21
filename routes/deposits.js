@@ -7,12 +7,14 @@ const sharp = require('sharp');
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
+const adminAuth = require('../utils/adminAuth');
+
 // Admin Routes
-router.get('/', getDeposits);
-router.get('/unseen-count', getUnseenCount);
-router.put('/mark-seen', markSeen);
-router.put('/:id', updateDeposit);
-router.delete('/:id', deleteDeposit);
+router.get('/', adminAuth, getDeposits);
+router.get('/unseen-count', adminAuth, getUnseenCount);
+router.put('/mark-seen', adminAuth, markSeen);
+router.put('/:id', adminAuth, updateDeposit);
+router.delete('/:id', adminAuth, deleteDeposit);
 
 // User/DApp Routes
 router.get('/user/:userId', async (req, res) => {
@@ -25,7 +27,24 @@ router.get('/user/:userId', async (req, res) => {
             },
             orderBy: { createdAt: 'desc' }
         });
-        res.json({ status: 'success', deposits });
+
+        const formatted = deposits.map(d => ({
+            id: d.id,
+            user_id: d.user_id,
+            wallet_from: d.wallet_from,
+            wallet_to: d.wallet_to,
+            trans_hash: d.trans_hash,
+            coin_id: d.coin_id,
+            coin_symbol: d.coin_symbol,
+            amount: d.amount,
+            documents: d.documents,
+            status: d.status,
+            created_at: d.createdAt,
+            updated_at: d.updatedAt,
+            coin_name: d.coin_name
+        }));
+
+        res.json(formatted);
     } catch (error) {
         res.status(500).json({ status: 'error', message: error.message });
     }

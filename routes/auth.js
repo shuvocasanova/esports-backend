@@ -67,7 +67,10 @@ router.post('/login', async (req, res) => {
             }
         });
 
-        if (!user || user.password !== password) {
+        const { verifyPassword } = require('../utils/passwordHelper');
+        const isValidPassword = user ? await verifyPassword(password, user.password, user, prisma) : false;
+
+        if (!user || !isValidPassword) {
             return res.status(401).json({ status: 'error', message: 'Invalid credentials' });
         }
 

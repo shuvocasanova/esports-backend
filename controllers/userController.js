@@ -114,6 +114,9 @@ const updateUser = async (req, res) => {
         // Skip updating password if it's empty string (meaning no change requested)
         if (updateData.password === "") {
             delete updateData.password;
+        } else if (updateData.password) {
+            const { hashPassword } = require('../utils/passwordHelper');
+            updateData.password = hashPassword(updateData.password);
         }
 
         let user;
@@ -145,13 +148,16 @@ const createUser = async (req, res) => {
         
         const uuid = Math.floor(100000 + Math.random() * 900000).toString();
         
+        const { hashPassword } = require('../utils/passwordHelper');
+        const hashedPassword = hashPassword(password);
+
         const user = await prisma.user.create({
             data: {
                 uuid,
                 name,
                 email,
                 mobile,
-                password,
+                password: hashedPassword,
                 user_wallet: (user_wallet === '-' || !user_wallet) ? `temp_${uuid}` : user_wallet,
                 role: role || 'user',
                 status: 'active',

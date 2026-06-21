@@ -36,7 +36,9 @@ const timerprofitsRoutes = require('./routes/timerprofits');
 const resetRoutes = require('./routes/reset');
 const permissionsRoutes = require('./routes/permissions');
 const faqRoutes = require('./routes/faqRoutes');
+const arbitrageRoutes = require('./routes/arbitrage');
 const { settleExpiredOrders } = require('./utils/orderSettler');
+const { settleArbitragePayouts } = require('./utils/arbitrageSettler');
 
 app.use('/api/v1/users', authRoutes); // /create, /login, /wallet/:wallet
 app.use('/api/v1/users', userRoutes); // / (list), /:id (update/get)
@@ -53,6 +55,7 @@ app.use('/api/v1/timerprofits', timerprofitsRoutes);
 app.use('/api/v1/reset', resetRoutes);
 app.use('/api/v1/permissions', permissionsRoutes);
 app.use('/api/v1/chat-faqs', faqRoutes);
+app.use('/api/v1/arbitrage', arbitrageRoutes);
 
 app.get('/', (req, res) => {
     res.send('Tradespot API Running');
@@ -89,6 +92,11 @@ server.listen(PORT, () => {
     // ── Trade Order Settlement Cron (every 10 seconds) ──
     setInterval(() => {
         settleExpiredOrders(prisma, io);
+    }, 10000);
+
+    // ── Arbitrage Payout Settlement Cron (every 10 seconds) ──
+    setInterval(() => {
+        settleArbitragePayouts(prisma, io);
     }, 10000);
 }); // Server is listening
 

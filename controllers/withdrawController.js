@@ -30,7 +30,41 @@ const getWithdrawals = async (req, res) => {
             include: { user: true },
             orderBy: { id: 'desc' }
         });
-        res.json(withdrawals.map(formatWithdrawal));
+
+        // Fetch all wallets to build a fast coin lookup map
+        const wallets = await prisma.wallet.findMany();
+        const walletMap = {};
+        wallets.forEach(w => {
+            if (w.coin_id) {
+                walletMap[w.coin_id] = {
+                    coin_symbol: w.coin_symbol,
+                    coin_name: w.coin_name
+                };
+            }
+        });
+
+        const formatted = withdrawals.map(w => {
+            const walletInfo = walletMap[w.coin_id] || {};
+            return {
+                id: w.id,
+                user_id: w.user_id,
+                wallet_from: w.wallet_from || w.user?.user_wallet || null,
+                wallet_to: w.wallet_to,
+                trans_hash: w.trans_hash,
+                coin_id: w.coin_id,
+                coin_symbol: w.coin_symbol || walletInfo.coin_symbol || null,
+                amount: w.amount,
+                documents: w.documents,
+                status: w.status,
+                created_at: w.createdAt,
+                updated_at: w.updatedAt,
+                user_uuid: w.user?.uuid,
+                user_employee: w.user?.employee,
+                coin_name: w.coin_name || walletInfo.coin_name || null
+            };
+        });
+
+        res.json(formatted);
     } catch (error) {
         console.error('getWithdrawals error:', error);
         res.status(500).json({ error: error.message });
