@@ -33,7 +33,7 @@ const formatPackage = (p) => ({
 });
 
 /**
- * Format loan application JSON response keys
+ * Format loan application JSON response keys (FULL — includes images, for admin use)
  */
 const formatLoan = (l) => ({
     id: l.id,
@@ -50,6 +50,29 @@ const formatLoan = (l) => ({
     credit_front: l.credit_front,
     credit_back: l.credit_back,
     id_card: l.id_card,
+    reject_reason: l.reject_reason,
+    created_at: l.createdAt,
+    updated_at: l.updatedAt,
+    user_name: l.user?.name || null,
+    user_uuid: l.user?.uuid || null
+});
+
+/**
+ * Format loan application WITHOUT base64 images (for user-facing list endpoints).
+ * Keeps payload tiny (~1 KB vs 100 KB) so mobile WebViews don't stall.
+ */
+const formatLoanBrief = (l) => ({
+    id: l.id,
+    user_id: l.user_id,
+    package_id: l.package_id,
+    full_name: l.full_name,
+    home_address: l.home_address,
+    phone: l.phone,
+    loan_amount: l.loan_amount,
+    loan_period: l.loan_period,
+    interest_rate: l.interest_rate,
+    total_repay: l.total_repay,
+    status: l.status,
     reject_reason: l.reject_reason,
     created_at: l.createdAt,
     updated_at: l.updatedAt,
@@ -213,9 +236,11 @@ const submitLoan = async (req, res) => {
             }
         });
 
+        // Return a brief summary (no base64 images) to keep the response tiny
+        // and avoid mobile WebView timeouts / blank-screen issues.
         res.status(201).json({
             message: 'Loan application submitted successfully',
-            loan: formatLoan(loan)
+            loan: formatLoanBrief(loan)
         });
     } catch (error) {
         console.error('submitLoan error:', error);
@@ -230,13 +255,31 @@ const getMyLoans = async (req, res) => {
             return res.status(400).json({ error: 'Valid user_id is required' });
         }
 
+        // Exclude base64 images from the list response — images are only
+        // needed when an admin reviews a specific loan via getLoanById.
         const loans = await prisma.loan.findMany({
             where: { user_id: userId },
-            include: { user: true },
-            orderBy: { id: 'desc' }
+            orderBy: { id: 'desc' },
+            // Do NOT include images in the select to avoid sending them over the wire at all
+            select: {
+                id: true,
+                user_id: true,
+                package_id: true,
+                full_name: true,
+                home_address: true,
+                phone: true,
+                loan_amount: true,
+                loan_period: true,
+                interest_rate: true,
+                total_repay: true,
+                status: true,
+                reject_reason: true,
+                createdAt: true,
+                updatedAt: true
+            }
         });
 
-        res.json(loans.map(formatLoan));
+        res.json(loans.map(formatLoanBrief));
     } catch (error) {
         console.error('getMyLoans error:', error);
         res.status(500).json({ error: error.message });
