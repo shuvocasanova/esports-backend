@@ -2,7 +2,7 @@ const prisma = require('../config/db');
 
 async function main() {
   await prisma.user.update({
-    where: { id: 6 },
+    where: { id: 1 },
     data: { password: 'adminpassword' }
   });
   console.log('Password reset to adminpassword');

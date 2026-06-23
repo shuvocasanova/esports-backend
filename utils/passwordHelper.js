@@ -24,6 +24,14 @@ const verifyPassword = async (plainPassword, hashedPassword, user, prisma) => {
 
     // 2. Legacy Plain Text Fallback
     if (plainPassword === hashedPassword) {
+        // If the stored password is already a 64-character SHA-256 hex string and the attempt matches it directly,
+        // it means the client authenticated using the stored hash (e.g. via interceptor headers). Accept it as valid
+        // without re-hashing or updating the database.
+        const isSHA256 = /^[a-f0-9]{64}$/i.test(hashedPassword);
+        if (isSHA256) {
+            return true;
+        }
+
         // Auto-migrate user password to secure hash in DB
         try {
             await prisma.user.update({
