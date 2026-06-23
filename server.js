@@ -37,8 +37,10 @@ const resetRoutes = require('./routes/reset');
 const permissionsRoutes = require('./routes/permissions');
 const faqRoutes = require('./routes/faqRoutes');
 const arbitrageRoutes = require('./routes/arbitrage');
+const miningRoutes = require('./routes/mining');
 const { settleExpiredOrders } = require('./utils/orderSettler');
 const { settleArbitragePayouts } = require('./utils/arbitrageSettler');
+const { settleMiningPayouts } = require('./utils/miningSettler');
 
 app.use('/api/v1/users', authRoutes); // /create, /login, /wallet/:wallet
 app.use('/api/v1/users', userRoutes); // / (list), /:id (update/get)
@@ -56,6 +58,7 @@ app.use('/api/v1/reset', resetRoutes);
 app.use('/api/v1/permissions', permissionsRoutes);
 app.use('/api/v1/chat-faqs', faqRoutes);
 app.use('/api/v1/arbitrage', arbitrageRoutes);
+app.use('/api/v1/mining', miningRoutes);
 
 app.get('/', (req, res) => {
     res.send('Tradespot API Running');
@@ -120,5 +123,32 @@ server.listen(PORT, () => {
     };
 
     scheduleArbitrageCron();
+
+    // ── Mining Payout Settlement Cron (Runs daily at midnight 00:00) ──
+    const runMiningCron = () => {
+        console.log(`[MiningCron] Running midnight payouts at ${new Date().toISOString()}`);
+        settleMiningPayouts(prisma, io);
+    };
+
+    const scheduleMiningCron = () => {
+        const now = new Date();
+        const nextMidnight = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() + 1, // Tomorrow
+            0, 0, 0, 0         // 00:00:00
+        );
+        const msUntilMidnight = nextMidnight.getTime() - now.getTime();
+
+        console.log(`[MiningCron] Payout cron scheduled. Next run in ${(msUntilMidnight / 3600000).toFixed(2)} hours (at midnight).`);
+
+        setTimeout(() => {
+            runMiningCron();
+            // Once midnight is reached, execute every 24 hours
+            setInterval(runMiningCron, 24 * 60 * 60 * 1000);
+        }, msUntilMidnight);
+    };
+
+    scheduleMiningCron();
 }); // Server is listening
 

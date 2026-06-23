@@ -45,3 +45,52 @@ Automated simulation runs using `verify-arbitrage.js` confirmed that:
 4. Early cancellations refund user balances exactly.
 
 **Status: 100% Verified and Working.**
+
+---
+
+# Implementation Progress - Mining Machine Leasing
+
+We have successfully implemented and verified the backend logic for **Mining Machine Leasing** (Task 2 of 3).
+
+---
+
+## 1. Database Schema Configurations
+Modified `prisma/schema.prisma` to include two new models:
+* **`MiningPackage`**: Stores configuration parameters for mining leasing plans (`name`, `duration_days`, `daily_rate`, `rent_amount`, `computing`, `power`, `color`, `stars`, `status`).
+* **`MiningSubscription`**: Stores active machine leases, quantities, accumulated interest yields, status transitions (`active`, `completed`, `cancelled`), and principal values.
+
+Applied the changes directly to PostgreSQL (Neon) using `npx prisma db push` and updated Prisma Client configurations with `npx prisma generate`.
+
+---
+
+## 2. Default Packages Seeded
+Created and executed `seed-mining.js` to seed the standard mining packages:
+* **1 days**: 1 Day, 1.0000% daily interest, rent 1,000 USDT, computing 15000 TH/s, power 150000W.
+* **7 Days**: 7 Days, 1.5000% daily interest, rent 3,000 USDT, computing 25000 TH/s, power 200000W.
+* **30 Days**: 30 Days, 2.0000% daily interest, rent 10,000 USDT, computing 50000 TH/s, power 350000W.
+
+---
+
+## 3. Backend Express API Implementation
+* **Router (`routes/mining.js`)**: Maps user endpoints for listing active packages, subscribing (leasing), viewing user subscriptions, and canceling subscriptions. Protects admin operations (creating, editing, and deleting plans, viewing all platform subscriptions, and running manual payouts) using `adminAuth`.
+* **Controller (`controllers/miningController.js`)**:
+  * `getMiningPackages` / `getMiningPackagesAdmin`: Fetches configured packages.
+  * `subscribeMining`: Conducts quantity and status validations, performs atomic transaction balance checks on the user USDT wallet (`coin_amount`) and user balance (`balance`), deducting the total rent amount (`quantity * rent_amount`) to lease the machines.
+  * `cancelMiningSubscription`: Aborts active leases, performing an atomic transaction refund of the total rent amount back to user balances.
+
+---
+
+## 4. Automatic Yield Settler Loop
+* **Scheduler (`utils/miningSettler.js`)**: Checks active mining subscriptions. Credits the daily yield payout (`rent_amount * daily_rate%`) to user wallets and main balances once every 24 hours. Upon maturity (`end_date`), it automatically returns the original principal rent amount and marks the subscription as `'completed'`.
+* Registered the scheduler loop inside `server.js` running daily at midnight.
+
+---
+
+## 5. System Verification
+Automated simulation runs using `verify-mining.js` confirmed that:
+1. Balance deductions and plan setups occur atomically.
+2. Daily interest yield distribution functions correctly.
+3. Maturity transitions and principal refunds return accurate balances.
+4. Early cancellations refund user balances exactly.
+
+**Status: 100% Verified and Working.**

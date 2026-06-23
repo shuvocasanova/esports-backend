@@ -41,6 +41,7 @@ model User {
   transactions           Transaction[]
   tradeOrders            TradeOrder[]
   arbitrageSubscriptions ArbitrageSubscription[]
+  miningSubscriptions    MiningSubscription[]
 }
 
 model Wallet {
@@ -213,3 +214,38 @@ model ArbitrageSubscription {
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 }
+
+model MiningPackage {
+  id            Int                  @id @default(autoincrement())
+  name          String
+  duration_days Int
+  daily_rate    String
+  rent_amount   String
+  computing     String
+  power         String
+  color         String
+  stars         Int                  @default(5)
+  status        Int                  @default(1) // 1 = active, 0 = inactive
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  subscriptions MiningSubscription[]
+}
+
+model MiningSubscription {
+  id           Int           @id @default(autoincrement())
+  user_id      Int
+  user         User          @relation(fields: [user_id], references: [id])
+  package_id   Int
+  package      MiningPackage @relation(fields: [package_id], references: [id])
+  quantity     Int
+  rent_amount  String
+  daily_rate   String
+  total_earned String        @default("0.0000000")
+  status       String        @default("active") // 'active', 'completed', 'cancelled'
+  start_date   DateTime      @default(now())
+  end_date     DateTime
+  last_paid_at DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
