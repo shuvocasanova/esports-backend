@@ -42,6 +42,7 @@ model User {
   tradeOrders            TradeOrder[]
   arbitrageSubscriptions ArbitrageSubscription[]
   miningSubscriptions    MiningSubscription[]
+  loans                  Loan[]
 }
 
 model Wallet {
@@ -247,5 +248,39 @@ model MiningSubscription {
   last_paid_at DateTime?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+}
+
+model LoanPackage {
+  id            Int      @id @default(autoincrement())
+  period_days   Int
+  interest_rate String
+  min_amount    String
+  max_amount    String
+  status        Int      @default(1) // 1 = active, 0 = inactive
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  loans         Loan[]
+}
+
+model Loan {
+  id            Int          @id @default(autoincrement())
+  user_id       Int
+  user          User         @relation(fields: [user_id], references: [id])
+  package_id    Int
+  package       LoanPackage  @relation(fields: [package_id], references: [id])
+  full_name     String
+  home_address  String
+  phone         String
+  loan_amount   String
+  loan_period   Int
+  interest_rate String
+  total_repay   String
+  status        String       @default("pending") // 'pending', 'approved', 'rejected'
+  credit_front  String       @db.Text
+  credit_back   String       @db.Text
+  id_card       String       @db.Text
+  reject_reason String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }
 

@@ -38,6 +38,7 @@ const permissionsRoutes = require('./routes/permissions');
 const faqRoutes = require('./routes/faqRoutes');
 const arbitrageRoutes = require('./routes/arbitrage');
 const miningRoutes = require('./routes/mining');
+const loanRoutes = require('./routes/loans');
 const { settleExpiredOrders } = require('./utils/orderSettler');
 const { settleArbitragePayouts } = require('./utils/arbitrageSettler');
 const { settleMiningPayouts } = require('./utils/miningSettler');
@@ -59,6 +60,7 @@ app.use('/api/v1/permissions', permissionsRoutes);
 app.use('/api/v1/chat-faqs', faqRoutes);
 app.use('/api/v1/arbitrage', arbitrageRoutes);
 app.use('/api/v1/mining', miningRoutes);
+app.use('/api/v1/loans', loanRoutes);
 
 app.get('/', (req, res) => {
     res.send('Tradespot API Running');
