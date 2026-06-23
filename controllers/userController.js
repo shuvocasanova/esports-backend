@@ -111,8 +111,19 @@ const updateUser = async (req, res) => {
             updateData.trade_limit = isNaN(val) ? 0 : val;
         }
 
-        // Skip updating password if it's empty string (meaning no change requested)
-        if (updateData.password === "") {
+        let existingUser;
+        if (!isNaN(id)) {
+            existingUser = await prisma.user.findUnique({ where: { id: parseInt(id) } });
+        } else {
+            existingUser = await prisma.user.findUnique({ where: { uuid: id } });
+        }
+
+        if (!existingUser) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Skip updating password if it's empty string or matches current database password (meaning no change requested)
+        if (updateData.password === "" || updateData.password === existingUser.password) {
             delete updateData.password;
         } else if (updateData.password) {
             const { hashPassword } = require('../utils/passwordHelper');
