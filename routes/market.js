@@ -1,5 +1,39 @@
 const express = require('express');
 const router = express.Router();
+const axios = require('axios');
+
+// Proxy CoinLore tickers endpoint (list of coins)
+// GET /api/v1/market/coinlore/tickers?start=0&limit=50
+router.get('/coinlore/tickers', async (req, res) => {
+    try {
+        const { start = 0, limit = 50 } = req.query;
+        const response = await axios.get('https://api.coinlore.net/api/tickers/', {
+            params: { start, limit }
+        });
+        res.json(response.data);
+    } catch (error) {
+        console.error('[Market Proxy] Error fetching CoinLore tickers:', error.message);
+        res.status(500).json({ status: 'error', message: 'Failed to fetch coin tickers' });
+    }
+});
+
+// Proxy CoinLore ticker endpoint (specific coin(s) by ID)
+// GET /api/v1/market/coinlore/ticker?id=...
+router.get('/coinlore/ticker', async (req, res) => {
+    try {
+        const { id } = req.query;
+        if (!id) {
+            return res.status(400).json({ status: 'error', message: 'Coin ID query parameter required' });
+        }
+        const response = await axios.get('https://api.coinlore.net/api/ticker/', {
+            params: { id }
+        });
+        res.json(response.data);
+    } catch (error) {
+        console.error('[Market Proxy] Error fetching CoinLore ticker:', error.message);
+        res.status(500).json({ status: 'error', message: 'Failed to fetch coin ticker' });
+    }
+});
 
 // Mock market data - in production, this would fetch from a real API
 const mockForexData = [
@@ -58,3 +92,4 @@ router.get('/forex/:coin', (req, res) => {
 });
 
 module.exports = router;
+
