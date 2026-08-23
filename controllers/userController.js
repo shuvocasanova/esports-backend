@@ -18,6 +18,7 @@ const formatUser = (u) => ({
     referral_bonus: u.referral_bonus,
     trade_limit: u.trade_limit,
     status: u.status,
+    is_frozen: u.is_frozen ?? false,
     message_status: u.message_status,
     note: u.note,
     employee: u.employee,
@@ -172,7 +173,9 @@ const createUser = async (req, res) => {
                 user_wallet: (user_wallet === '-' || !user_wallet) ? `temp_${uuid}` : user_wallet,
                 role: role || 'user',
                 status: 'active',
-                balance: '0.0000000'
+                balance: '0.0000000',
+                is_profit: 1,
+                trade_limit: 10
             }
         });
         
@@ -241,7 +244,45 @@ const faceVerify = async (req, res) => {
 
         res.json({ message: 'Face verification submitted successfully', user: formatUser(user) });
     } catch (error) {
-        console.error('faceVerify error:', error.message); // Log only the message
+        console.error('faceVerify error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+/**
+ * POST /api/v1/users/freeze
+ */
+const freezeUser = async (req, res) => {
+    try {
+        const userId = req.body.user_id || req.body.id;
+        if (!userId) {
+            return res.status(400).json({ error: 'user_id is required' });
+        }
+
+        const numericId = parseInt(userId);
+        const existingUser = await prisma.user.findUnique({
+            where: { id: numericId }
+        });
+
+        if (!existingUser) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const newIsFrozen = req.body.is_frozen !== undefined 
+            ? Boolean(req.body.is_frozen) 
+            : !existingUser.is_frozen;
+
+        const updatedUser = await prisma.user.update({
+            where: { id: numericId },
+            data: { is_frozen: newIsFrozen }
+        });
+
+        res.json({ 
+            message: `User ${newIsFrozen ? 'frozen' : 'unfrozen'} successfully`,
+            user: formatUser(updatedUser) 
+        });
+    } catch (error) {
+        console.error('freezeUser error:', error.message);
         res.status(500).json({ error: error.message });
     }
 };
@@ -252,5 +293,7 @@ module.exports = {
     updateUser,
     createUser,
     uploadProfileImage,
-    faceVerify
+    faceVerify,
+    freezeUser
 };
+

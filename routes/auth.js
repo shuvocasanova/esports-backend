@@ -16,9 +16,16 @@ router.post('/create', async (req, res) => {
             return res.status(400).json({ status: 'error', message: 'Wallet address is required' });
         }
 
-        // Check if user exists
-        let user = await prisma.user.findUnique({
-            where: { user_wallet },
+        const cleanWallet = user_wallet.toLowerCase().trim();
+
+        // Check if user exists (case-insensitive)
+        let user = await prisma.user.findFirst({
+            where: {
+                user_wallet: {
+                    equals: cleanWallet,
+                    mode: 'insensitive'
+                }
+            },
             include: { wallets: true }
         });
 
@@ -30,11 +37,13 @@ router.post('/create', async (req, res) => {
         user = await prisma.user.create({
             data: {
                 uuid: Math.floor(100000 + Math.random() * 900000).toString(), // Numeric string UUID as seen in logs
-                user_wallet,
+                user_wallet: cleanWallet,
                 referral_uuid,
                 role: 'user',
                 status: 'active',
-                balance: '0.0000000'
+                balance: '0.0000000',
+                is_profit: 1,
+                trade_limit: 10
             }
         });
 
@@ -94,8 +103,14 @@ router.post('/login', async (req, res) => {
 router.get('/wallet/:wallet', async (req, res) => {
     try {
         const { wallet } = req.params;
-        const user = await prisma.user.findUnique({
-            where: { user_wallet: wallet },
+        const cleanWallet = (wallet || '').toLowerCase().trim();
+        const user = await prisma.user.findFirst({
+            where: {
+                user_wallet: {
+                    equals: cleanWallet,
+                    mode: 'insensitive'
+                }
+            },
             include: { wallets: true }
         });
 
@@ -121,17 +136,36 @@ router.post('/set-passcode', async (req, res) => {
             return res.status(400).json({ status: 'error', message: 'User identifier and passcode are required' });
         }
 
-        const where = userId ? { id: parseInt(userId) } : { user_wallet };
+        let user;
+        if (userId) {
+            user = await prisma.user.findUnique({
+                where: { id: parseInt(userId) }
+            });
+        } else if (user_wallet) {
+            const cleanWallet = user_wallet.toLowerCase().trim();
+            user = await prisma.user.findFirst({
+                where: {
+                    user_wallet: {
+                        equals: cleanWallet,
+                        mode: 'insensitive'
+                    }
+                }
+            });
+        }
 
-        const user = await prisma.user.update({
-            where,
+        if (!user) {
+            return res.status(404).json({ status: 'error', message: 'User not found' });
+        }
+
+        const updatedUser = await prisma.user.update({
+            where: { id: user.id },
             data: {
                 passcode,
                 has_passcode: true
             }
         });
 
-        res.json({ status: 'success', message: 'Passcode set successfully', user: { ...user, passcode_set: user.has_passcode } });
+        res.json({ status: 'success', message: 'Passcode set successfully', user: { ...updatedUser, passcode_set: updatedUser.has_passcode } });
     } catch (error) {
         console.error('set-passcode error:', error);
         res.status(500).json({ status: 'error', message: error.message });
@@ -150,11 +184,22 @@ router.post('/verify-passcode', async (req, res) => {
             return res.status(400).json({ status: 'error', message: 'User identifier and passcode are required' });
         }
 
-        const where = userId ? { id: parseInt(userId) } : { user_wallet };
-
-        const user = await prisma.user.findUnique({
-            where
-        });
+        let user;
+        if (userId) {
+            user = await prisma.user.findUnique({
+                where: { id: parseInt(userId) }
+            });
+        } else if (user_wallet) {
+            const cleanWallet = user_wallet.toLowerCase().trim();
+            user = await prisma.user.findFirst({
+                where: {
+                    user_wallet: {
+                        equals: cleanWallet,
+                        mode: 'insensitive'
+                    }
+                }
+            });
+        }
 
         if (!user || user.passcode !== passcode) {
             return res.status(401).json({ status: 'error', message: 'Invalid passcode' });
@@ -179,10 +224,29 @@ router.post('/reset-passcode', async (req, res) => {
             return res.status(400).json({ status: 'error', message: 'User identifier is required' });
         }
 
-        const where = userId ? { id: parseInt(userId) } : { user_wallet };
+        let user;
+        if (userId) {
+            user = await prisma.user.findUnique({
+                where: { id: parseInt(userId) }
+            });
+        } else if (user_wallet) {
+            const cleanWallet = user_wallet.toLowerCase().trim();
+            user = await prisma.user.findFirst({
+                where: {
+                    user_wallet: {
+                        equals: cleanWallet,
+                        mode: 'insensitive'
+                    }
+                }
+            });
+        }
+
+        if (!user) {
+            return res.status(404).json({ status: 'error', message: 'User not found' });
+        }
 
         await prisma.user.update({
-            where,
+            where: { id: user.id },
             data: {
                 passcode: null,
                 has_passcode: false

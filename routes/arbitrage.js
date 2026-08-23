@@ -13,6 +13,7 @@ const {
 } = require('../controllers/arbitrageController');
 
 const adminAuth = require('../utils/adminAuth');
+const checkFrozen = require('../utils/checkFrozen');
 
 // ── User routes ──────────────────────────────────────────────────
 
@@ -20,7 +21,7 @@ const adminAuth = require('../utils/adminAuth');
 router.get('/packages', getPackages);
 
 // POST /api/v1/arbitrage/subscribe
-router.post('/subscribe', subscribePackage);
+router.post('/subscribe', checkFrozen, subscribePackage);
 
 // GET /api/v1/arbitrage/subscriptions/:userId
 router.get('/subscriptions/:userId', getUserSubscriptions);

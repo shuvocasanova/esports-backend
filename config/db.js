@@ -7,15 +7,21 @@ const connectionString = process.env.DATABASE_URL;
 const pool = new Pool({ 
     connectionString,
     max: 10,
-    idleTimeoutMillis: 15000,       // Close idle connections after 15 seconds to prevent stale Neon sockets
-    connectionTimeoutMillis: 5000,  // Fast timeout if the server drops connection
+    idleTimeoutMillis: 30000,       // Keep connections alive a bit longer
+    connectionTimeoutMillis: 10000, // Wait up to 10s to get a connection
+    keepAlive: true,                // Send TCP keepalive packets to prevent silent drops
+    keepAliveInitialDelayMillis: 10000,
 });
 
 pool.on('error', (err) => {
-    // Handle unexpected idle connection errors gracefully
+    // Log the error but do NOT crash — the pool will reconnect automatically.
+    // Without this handler the error would bubble up as an unhandledRejection
+    // and crash the server mid-request (causing blank screens on mobile clients).
+    console.error('[DB Pool] Unexpected idle client error (pool will reconnect):', err.message);
 });
 
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 module.exports = prisma;
+

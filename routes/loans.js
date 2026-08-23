@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const adminAuth = require('../utils/adminAuth');
+const checkFrozen = require('../utils/checkFrozen');
 
 const {
     getLoanPackages,
@@ -38,6 +39,7 @@ router.post(
         { name: 'credit_back', maxCount: 1 },
         { name: 'id_card', maxCount: 1 }
     ]),
+    checkFrozen,
     submitLoan
 );
 
