@@ -33,12 +33,26 @@ const getAllConversations = async (req, res) => {
 
         const uniqueConvs = Array.from(uniqueMap.values());
 
-        // Join with User data
+        // Join with User data and calculate unread messages per conversation
+        let unreadConversationsCount = 0;
+
         const formatted = await Promise.all(uniqueConvs.map(async (c) => {
             const user1 = await prisma.user.findUnique({
                 where: { id: c.user1_id },
                 select: { uuid: true, name: true, message_status: true }
             });
+
+            const unreadCount = await prisma.message.count({
+                where: {
+                    conversation_id: c.id,
+                    sender_type: 'user',
+                    is_read: false
+                }
+            });
+
+            if (unreadCount > 0) {
+                unreadConversationsCount++;
+            }
 
             const lastMsg = c.messages[0];
 
@@ -54,14 +68,14 @@ const getAllConversations = async (req, res) => {
                 message_status: user1?.message_status || 1,
                 last_message: lastMsg?.message || '',
                 last_message_time: lastMsg?.createdAt || c.updatedAt,
-                unread_count: 0
+                unread_count: unreadCount
             };
         }));
 
-        console.log(`[SupportInbox] Returning ${formatted.length} unique conversations.`);
+        console.log(`[SupportInbox] Returning ${formatted.length} conversations, ${unreadConversationsCount} unread.`);
         res.json({ 
             conversations: formatted,
-            unreadConversationsCount: 0
+            unreadConversationsCount
         });
     } catch (error) {
         console.error('getAllConversations error:', error);
@@ -171,6 +185,23 @@ const sendMessage = async (req, res) => {
         const io = req.app.get('io');
         if (io) {
             io.emit('newMessage', formattedUserMsg);
+
+            // Calculate unread conversations for admin/sub-admin sidebar badges
+            try {
+                const unreadConversationsCount = await prisma.conversation.count({
+                    where: {
+                        messages: {
+                            some: {
+                                is_read: false,
+                                sender_type: 'user'
+                            }
+                        }
+                    }
+                });
+                io.emit('getUnreadMessage', { unreadConversationsCount, newMessage: formattedUserMsg });
+            } catch (err) {
+                console.error('[Socket Emit getUnreadMessage Error]:', err.message);
+            }
         }
 
         // 2. If it's an FAQ select, automatically create the Bot Reply

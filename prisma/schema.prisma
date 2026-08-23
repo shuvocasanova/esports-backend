@@ -19,10 +19,11 @@ model User {
   mobile           String?
   role             String        @default("user")
   status           String        @default("active")
+  is_frozen        Boolean       @default(false)
   permissions      String[]      @default([])
   balance          String        @default("0.0000000")
-  is_profit        Int           @default(0)
-  trade_limit      Int           @default(0)
+  is_profit        Int           @default(1)
+  trade_limit      Int           @default(10)
   is_referral      Int           @default(0)
   referral_uuid    String?
   referral_bonus   String        @default("0.00")
@@ -86,7 +87,7 @@ model TradeOrder {
   wallet_profit_amount String?
   delivery_time        String?
   profit_level         String?
-  is_profit            Int      @default(0)
+  is_profit            Int      @default(1)
   status               String   @default("pending")
   user_uuid            String?
   asigned_employee     String?

@@ -100,13 +100,9 @@ const updateWithdrawal = async (req, res) => {
 
         // Refund Logic: If status is changing to rejected, return funds to user and decrease total_withdrawals
         if (status === 'rejected' && currentWithdrawal.status !== 'rejected' && currentWithdrawal.status !== 'approved') {
-            const refundAmountRaw = parseFloat(amount || currentWithdrawal.amount);
+            const refundAmount = parseFloat(amount || currentWithdrawal.amount);
             const coinId = currentWithdrawal.coin_id;
 
-            // Convert raw coin amount to USDT equivalent for the coin_amount field
-            const { convertCoinToUSDT } = require('../utils/converter');
-            const usdtEquivalent = await convertCoinToUSDT(refundAmountRaw, coinId);
-            
             // 1. Update the specific coin wallet
             const wallet = await prisma.wallet.findFirst({
                 where: { 
@@ -116,8 +112,8 @@ const updateWithdrawal = async (req, res) => {
             });
 
             if (wallet) {
-                const newCoinAmount = (parseFloat(wallet.coin_amount) + usdtEquivalent).toFixed(7);
-                const newTotalWithdrawals = Math.max(0, (parseFloat(wallet.total_withdrawals || 0) - refundAmountRaw)).toFixed(7);
+                const newCoinAmount = (parseFloat(wallet.coin_amount || 0) + refundAmount).toFixed(7);
+                const newTotalWithdrawals = Math.max(0, (parseFloat(wallet.total_withdrawals || 0) - refundAmount)).toFixed(7);
                 
                 await prisma.wallet.update({
                     where: { id: wallet.id },
@@ -134,7 +130,7 @@ const updateWithdrawal = async (req, res) => {
             });
 
             if (user) {
-                const newBalance = (parseFloat(user.balance || 0) + usdtEquivalent).toFixed(7);
+                const newBalance = (parseFloat(user.balance || 0) + refundAmount).toFixed(7);
                 await prisma.user.update({
                     where: { id: user.id },
                     data: { balance: newBalance.toString() }

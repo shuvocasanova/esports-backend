@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const prisma = require('../config/db');
-const { getUsers, getUserById, updateUser, createUser, uploadProfileImage, faceVerify } = require('../controllers/userController');
+const { getUsers, getUserById, updateUser, createUser, uploadProfileImage, faceVerify, freezeUser } = require('../controllers/userController');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -10,6 +10,9 @@ router.get('/', getUsers);
 
 // POST /api/v1/users/signup
 router.post('/signup', createUser);
+
+// POST /api/v1/users/freeze
+router.post('/freeze', freezeUser);
 
 // GET /api/v1/users/:id
 router.get('/:id', getUserById);

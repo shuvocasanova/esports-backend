@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getAllTradeOrders, deleteTradeOrder, updateTradeOrder, createTradeOrder, getUserTradeOrders } = require('../controllers/tradeController');
+const checkFrozen = require('../utils/checkFrozen');
 
 // GET  /api/v1/tradeorder
 router.get('/', getAllTradeOrders);
@@ -9,7 +10,7 @@ router.get('/', getAllTradeOrders);
 router.get('/user/:userId', getUserTradeOrders);
 
 // POST /api/v1/tradeorder
-router.post('/', createTradeOrder);
+router.post('/', checkFrozen, createTradeOrder);
 
 // PUT  /api/v1/tradeorder/:id  (toggle is_profit / update status)
 router.put('/:id', updateTradeOrder);

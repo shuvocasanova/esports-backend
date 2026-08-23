@@ -43,16 +43,18 @@ const settleExpiredOrders = async (prisma, io) => {
 
             console.log(`[Settler] Settling order #${order.id} (${order.delivery_time}, is_profit=${order.is_profit})`);
 
+            const amount = parseFloat(order.amount || '0');
+            const profitLevel = parseFloat(order.profit_level || '0');
             let actualPayout = '0';
+            let pureProfitLoss = (amount * (profitLevel / 100)).toFixed(2);
 
             if (order.is_profit === 1) {
                 // Profit formula: amount + (amount × profit_level%) − (amount × 0.1% fee)
-                const amount = parseFloat(order.amount || '0');
-                const profitLevel = parseFloat(order.profit_level || '0');
                 const profit = amount * (profitLevel / 100);
                 const fee = amount * 0.001;
                 const payout = amount + profit - fee;
                 actualPayout = payout.toFixed(7);
+                pureProfitLoss = profit.toFixed(2);
 
                 // Credit the user's wallet
                 const wallet = await prisma.wallet.findFirst({
@@ -74,15 +76,16 @@ const settleExpiredOrders = async (prisma, io) => {
                 }
             } else {
                 // Loss — balance already deducted on placement, nothing to credit
+                pureProfitLoss = amount.toFixed(2);
                 console.log(`[Settler] Loss outcome for order #${order.id} — no balance change`);
             }
 
-            // Mark the order as finished
+            // Mark the order as finished with only profit/loss in profit_amount
             const updatedOrder = await prisma.tradeOrder.update({
                 where: { id: order.id },
                 data: {
                     status: 'finished',
-                    profit_amount: actualPayout,
+                    profit_amount: pureProfitLoss,
                     delivery_price: order.purchase_price, // Use purchase price as fallback
                 },
             });
