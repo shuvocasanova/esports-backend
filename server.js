@@ -5,6 +5,21 @@ const cors = require('cors');
 const morgan = require('morgan');
 require('dotenv').config();
 
+// ── Global safety nets ──────────────────────────────────────────────────────
+// Prevent the server from crashing when a background cron (Settler, Arbitrage,
+// Mining) hits a transient database error (e.g. Neon connection drop).
+// Without these, nodemon restarts the server mid-request, causing blank screens
+// on mobile clients that have an HTTP upload in flight.
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[Server] Unhandled Promise Rejection (suppressed to prevent crash):', reason?.message || reason);
+    // Do NOT call process.exit — we want the server to keep running.
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('[Server] Uncaught Exception (suppressed to prevent crash):', err?.message || err);
+    // Do NOT call process.exit — we want the server to keep running.
+});
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -82,6 +97,39 @@ const io = new Server(server, {
 io.on('connection', (socket) => {
     const userId = socket.handshake.query.userId;
     console.log(`User connected: ${userId}, Socket ID: ${socket.id}`);
+
+    socket.on('markSeen', async (data) => {
+        try {
+            const { conversationId, seenAt } = data || {};
+            if (conversationId) {
+                await prisma.message.updateMany({
+                    where: {
+                        conversation_id: parseInt(conversationId),
+                        is_read: false
+                    },
+                    data: {
+                        is_read: true
+                    }
+                });
+
+                const unreadConversationsCount = await prisma.conversation.count({
+                    where: {
+                        messages: {
+                            some: {
+                                is_read: false,
+                                sender_type: 'user'
+                            }
+                        }
+                    }
+                });
+
+                io.emit('getUnreadMessage', { unreadConversationsCount, conversationId });
+                io.emit('messagesSeen', { conversation_id: conversationId, seen_at: seenAt || new Date().toISOString() });
+            }
+        } catch (err) {
+            console.error('[Socket markSeen Error]:', err.message);
+        }
+    });
 
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${userId}`);
