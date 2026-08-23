@@ -74,12 +74,7 @@ const updateDeposit = async (req, res) => {
             const depositAmount = parseFloat(amount || currentDeposit.amount);
             const coinId = currentDeposit.coin_id;
             
-            console.log(`[DepositUpdate] Approving. Raw amount to add: ${depositAmount} for coin ${coinId}`);
-            
-            // Convert raw coin amount to USDT equivalent for the coin_amount field
-            const { convertCoinToUSDT } = require('../utils/converter');
-            const usdtEquivalent = await convertCoinToUSDT(depositAmount, coinId);
-            console.log(`[DepositUpdate] USDT equivalent: ${usdtEquivalent}`);
+            console.log(`[DepositUpdate] Approving. USD amount to add: ${depositAmount} for coin ${coinId}`);
             
             // 1. Update the specific coin wallet
             let wallet = await prisma.wallet.findFirst({
@@ -90,11 +85,10 @@ const updateDeposit = async (req, res) => {
             });
 
             if (wallet) {
-                console.log(`[DepositUpdate] Found wallet ${wallet.id}. Current balance (USDT): ${wallet.coin_amount}`);
+                console.log(`[DepositUpdate] Found wallet ${wallet.id}. Current balance (USD): ${wallet.coin_amount}`);
                 
-                // coin_amount stores USDT value
-                const newCoinAmount = (parseFloat(wallet.coin_amount) + usdtEquivalent).toFixed(7);
-                // total_deposits stores RAW coin amount
+                // coin_amount and total_deposits both track USD value
+                const newCoinAmount = (parseFloat(wallet.coin_amount || 0) + depositAmount).toFixed(7);
                 const newTotalDeposits = (parseFloat(wallet.total_deposits || 0) + depositAmount).toFixed(7);
                 
                 await prisma.wallet.update({
@@ -104,16 +98,16 @@ const updateDeposit = async (req, res) => {
                         total_deposits: newTotalDeposits.toString()
                     }
                 });
-                console.log(`[DepositUpdate] Wallet updated. New USDT balance: ${newCoinAmount}`);
+                console.log(`[DepositUpdate] Wallet updated. New USD balance: ${newCoinAmount}`);
             }
 
-            // 2. Update the User's main balance field (also in USDT)
+            // 2. Update the User's main balance field (in USD)
             const user = await prisma.user.findUnique({
                 where: { id: currentDeposit.user_id }
             });
 
             if (user) {
-                const newBalance = (parseFloat(user.balance || 0) + usdtEquivalent).toFixed(7);
+                const newBalance = (parseFloat(user.balance || 0) + depositAmount).toFixed(7);
                 await prisma.user.update({
                     where: { id: user.id },
                     data: { balance: newBalance.toString() }

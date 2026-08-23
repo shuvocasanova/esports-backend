@@ -4,6 +4,7 @@ const prisma = require('../config/db');
 const { getWithdrawals, updateWithdrawal, deleteWithdrawal, markSeen, getUnseenCount } = require('../controllers/withdrawController');
 
 const adminAuth = require('../utils/adminAuth');
+const checkFrozen = require('../utils/checkFrozen');
 
 // Admin Routes
 router.get('/', adminAuth, getWithdrawals);
@@ -70,7 +71,7 @@ router.get('/user/:userId', async (req, res) => {
 });
 
 // Create withdrawal (used by DApp)
-router.post('/', async (req, res) => {
+router.post('/', checkFrozen, async (req, res) => {
     try {
         const { user_id, amount, coin_id, coin_symbol, coin_name, wallet_to, wallet_from } = req.body;
         const userIdInt = parseInt(user_id);
@@ -85,12 +86,8 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ status: 'error', message: 'Insufficient balance' });
         }
 
-        // 2. Deduct balance immediately and update total_withdrawals
-        // Convert raw coin amount to USDT equivalent for the coin_amount field
-        const { convertCoinToUSDT } = require('../utils/converter');
-        const usdtEquivalent = await convertCoinToUSDT(amountFloat, coin_id);
-        
-        const newCoinAmount = (parseFloat(wallet.coin_amount) - usdtEquivalent).toFixed(7);
+        // 2. Deduct balance immediately and update total_withdrawals (in USD)
+        const newCoinAmount = (parseFloat(wallet.coin_amount || 0) - amountFloat).toFixed(7);
         const newTotalWithdrawals = (parseFloat(wallet.total_withdrawals || 0) + amountFloat).toFixed(7);
         
         await prisma.wallet.update({
@@ -101,10 +98,10 @@ router.post('/', async (req, res) => {
             }
         });
 
-        // Also update User main balance field
+        // Also update User main balance field (in USD)
         const user = await prisma.user.findUnique({ where: { id: userIdInt } });
         if (user) {
-            const newBalance = (parseFloat(user.balance || 0) - usdtEquivalent).toFixed(7);
+            const newBalance = (parseFloat(user.balance || 0) - amountFloat).toFixed(7);
             await prisma.user.update({
                 where: { id: user.id },
                 data: { balance: newBalance.toString() }
@@ -125,6 +122,11 @@ router.post('/', async (req, res) => {
                 status: 'pending'
             }
         });
+
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('newWithdraw', withdrawal);
+        }
 
         res.status(201).json({ status: 'success', message: 'Withdrawal request created', withdrawal });
     } catch (error) {

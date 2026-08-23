@@ -8,6 +8,7 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 const adminAuth = require('../utils/adminAuth');
+const checkFrozen = require('../utils/checkFrozen');
 
 // Admin Routes
 router.get('/', adminAuth, getDeposits);
@@ -73,7 +74,7 @@ router.get('/latest/:userId/coin/:coinId', async (req, res) => {
 });
 
 // Create deposit (used by DApp)
-router.post('/', upload.single('documents'), async (req, res) => {
+router.post('/', upload.single('documents'), checkFrozen, async (req, res) => {
     try {
         const { user_id, amount, coin_id, coin_symbol, coin_name, wallet_from, wallet_to, trans_hash } = req.body;
         const file = req.file;
@@ -110,6 +111,18 @@ router.post('/', upload.single('documents'), async (req, res) => {
                 status: 'pending'
             }
         });
+
+        const io = req.app.get('io');
+        if (io) {
+            const unseenCount = await prisma.transaction.count({
+                where: { type: 'deposit', is_seen: false }
+            });
+            io.emit('newDeposit', {
+                ...deposit,
+                unseenCount
+            });
+        }
+
         res.status(201).json({ status: 'success', message: 'Deposit request created', deposit });
     } catch (error) {
         console.error('POST /api/v1/deposits error:', error);

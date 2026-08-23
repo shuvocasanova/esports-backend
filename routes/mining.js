@@ -14,6 +14,7 @@ const {
 } = require('../controllers/miningController');
 
 const adminAuth = require('../utils/adminAuth');
+const checkFrozen = require('../utils/checkFrozen');
 
 // ── User routes ──────────────────────────────────────────────────
 
@@ -21,7 +22,7 @@ const adminAuth = require('../utils/adminAuth');
 router.get('/packages', getMiningPackages);
 
 // POST /api/v1/mining/subscribe
-router.post('/subscribe', subscribeMining);
+router.post('/subscribe', checkFrozen, subscribeMining);
 
 // GET /api/v1/mining/subscriptions/:userId
 router.get('/subscriptions/:userId', getUserMiningSubscriptions);

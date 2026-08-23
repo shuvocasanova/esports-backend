@@ -68,7 +68,7 @@ const getUserTradeOrders = async (req, res) => {
 const getAllTradeOrders = async (req, res) => {
     try {
         const orders = await prisma.tradeOrder.findMany({
-            orderBy: { createdAt: 'asc' },
+            orderBy: { createdAt: 'desc' },
         });
         res.json(orders.map(formatOrder));
     } catch (error) {
@@ -140,6 +140,11 @@ const createTradeOrder = async (req, res) => {
             where: { id: parseInt(user_id) }
         });
 
+        // Determine if trade is profit based on input or user's is_profit setting (default 1 = profit)
+        const orderIsProfit = (is_profit !== undefined && is_profit !== null)
+            ? parseInt(is_profit)
+            : (user?.is_profit !== undefined && user?.is_profit !== null ? user.is_profit : 1);
+
         const order = await prisma.tradeOrder.create({
             data: {
                 order_id: order_id.toString(),
@@ -157,7 +162,7 @@ const createTradeOrder = async (req, res) => {
                 wallet_profit_amount: wallet_profit_amount?.toString(),
                 delivery_time,
                 profit_level: profit_level?.toString(),
-                is_profit: is_profit ? parseInt(is_profit) : 0,
+                is_profit: orderIsProfit,
                 status: 'running', // New trades start as running
                 user_uuid: user?.uuid || '',
                 asigned_employee: user?.employee || 'user',
